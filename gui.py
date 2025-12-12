@@ -10,7 +10,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap, QFont
 import lib
 
-SEED_MIN = -9999
+SEED_MIN = 0
 SEED_MAX = 9999
 OUTPUT_FN = "output.png"
 
@@ -185,22 +185,22 @@ class MainWindow(QMainWindow):
             {
                 "name": "Ocean",
                 "level": 130,
-                "base": [137, 120, 255]
+                "base": [41, 45, 171]
             },
             {   
                 "name": "Beach",
                 "level": 150,
-                "base": [234, 242, 119]
+                "base": [168, 179, 8]
             },
             {
                 "name": "Grassland",
                 "level": 190,
-                "base": [37, 189, 57]
+                "base": [33, 98, 38]
             },
             {
                 "name": "Mountains",
                 "level": 210,
-                "base": [89, 89, 89]
+                "base": [50, 50, 50]
             },
             {
                 "name": "Snow",
