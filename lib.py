@@ -1,7 +1,7 @@
 import PIL
 from PIL import Image, ImageDraw
 import numpy as np
-from noise import pnoise2
+from noise import snoise2
 import json
 
 def create_image(width, height, color):
@@ -25,7 +25,7 @@ def generate_noise_map(width, height, scale=100.0, octaves=6, persistence=0.5, l
     
     for i in range(height):
         for j in range(width):
-            noise_map[i, j] = pnoise2(yv[i, j], xv[i, j],
+            noise_map[i, j] = snoise2(yv[i, j], xv[i, j],
                                       octaves=octaves,
                                       persistence=persistence,
                                       lacunarity=lacunarity,
@@ -67,8 +67,10 @@ def noise_color(value: int) -> tuple:
             current_step = int(pct * variation_count)
             
             brightness = 0.8 + (0.4 * (current_step / variation_count))
-
-            return change_brightness(base_color, brightness)
+            color = change_brightness(base_color, brightness)
+            
+            print(f"Color for {value} is {color}")
+            return color
 
         prev_level = level
 

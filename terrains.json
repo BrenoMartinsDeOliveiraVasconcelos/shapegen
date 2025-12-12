@@ -1,24 +1,29 @@
 [
     {
-        "level": 64,
-        "variation": 1,
-        "base": [119, 191, 255]},
-    {
-        "level": 96,
+        "name": "Ocean",
+        "level": 72,
         "variation": 4,
+        "base": [119, 191, 255]},
+    {   
+        "name": "Beach",
+        "level":104,
+        "variation": 8,
         "base": [234, 242, 119]},
     {
-        "level": 180,
+        "name": "Grassland",
+        "level": 170,
         "variation": 32,
         "base": [37, 189, 57]},
     {
-        "level": 216,
+        "name": "Mountains",
+        "level": 200,
         "variation": 16,
         "base": [89, 89, 89]
     },
     {
+        "name": "Snow",
         "level": 256,
-        "variation": 1,
-        "base": [237, 237, 235]
+        "variation": 8,
+        "base": [255, 255, 255]
     }
 ]
