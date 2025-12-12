@@ -1,7 +1,7 @@
 import PIL
 from PIL import Image, ImageDraw
 import numpy as np
-from noise import snoise2
+from noise import snoise2, pnoise2
 import json
 
 def create_image(width, height, color):
@@ -48,16 +48,15 @@ def scale_image(image, final_width, final_height):
     return image.resize((final_width, final_height), resample=PIL.Image.NEAREST)
 
 
-def noise_color(value: int) -> tuple:
+def noise_color(value: int, variation: int, terrains: list[dict]) -> tuple:
     prev_level = 0
     
-    terrains = json.load(open("terrains.json"))
     for t in terrains:
         level = t["level"]
         
         if value < level:
             base_color = t["base"]
-            variation_count = max(1, t["variation"])
+            variation_count = max(1, variation)
             
             band_size = level - prev_level
             
@@ -69,7 +68,6 @@ def noise_color(value: int) -> tuple:
             brightness = 0.8 + (0.4 * (current_step / variation_count))
             color = change_brightness(base_color, brightness)
             
-            print(f"Color for {value} is {color}")
             return color
 
         prev_level = level
