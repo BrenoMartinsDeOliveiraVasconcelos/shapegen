@@ -23,6 +23,7 @@ def generate_noise_map(width, height, scale=100.0, octaves=6, persistence=0.5, l
     noise_map = np.zeros((height, width))
     total_pixels = width * height
     step = 0
+    seed_divisor = 100
     for i in range(height):
         for j in range(width):
             step += 1
@@ -32,7 +33,7 @@ def generate_noise_map(width, height, scale=100.0, octaves=6, persistence=0.5, l
                                       octaves=octaves,
                                       persistence=persistence,
                                       lacunarity=lacunarity,
-                                      base=seed)
+                                      base=seed/seed_divisor)
     
     noise_min = noise_map.min()
     noise_max = noise_map.max()

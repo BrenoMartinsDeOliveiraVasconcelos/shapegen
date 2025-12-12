@@ -11,7 +11,7 @@ from PyQt6.QtGui import QImage, QPixmap, QFont
 import lib
 
 SEED_MIN = 0
-SEED_MAX = 9999
+SEED_MAX = 10000000
 OUTPUT_FN = "output.png"
 
 class TerrainWorker(QThread):
