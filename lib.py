@@ -49,39 +49,36 @@ def scale_image(image, final_width, final_height):
 
 
 def noise_color(value: int) -> tuple:
+    prev_level = 0
+    
     terrains = json.load(open("terrains.json"))
-
-    index = 0
     for t in terrains:
         level = t["level"]
+        
         if value < level:
-            variation = t["variation"]
-            base_bright = 1.0
-            terrain_size = terrains[index+1]["level"] - level if index+1 < len(terrains) else 255 - level
-            bright_factor = base_bright / variation
-            terrain_layer_steps = int(terrain_size / variation)
+            base_color = t["base"]
+            variation_count = max(1, t["variation"])
             
-            terrain_layer_value = value-terrains[index-1]["level"] if index > 0 else value
-
-            part = 1
-            for val in range(0, terrain_size, terrain_layer_steps):
-                print(val)
-                if terrain_layer_value <= val:
-                    part += 1
-
-            brightness = base_bright - (bright_factor * part)
-
-            return change_brightness((c for c in t["base"]), brightness)
-
-        index += 1
+            band_size = level - prev_level
             
+            value_in_band = value - prev_level
+            pct = value_in_band / band_size if band_size > 0 else 0
+            
+            current_step = int(pct * variation_count)
+            
+            brightness = 0.8 + (0.4 * (current_step / variation_count))
+
+            return change_brightness(base_color, brightness)
+
+        prev_level = level
+
+    return (255, 255, 255)
 
 def change_brightness(rgb: tuple, brightness: float) -> tuple:
-    rgb_list = [code for code in rgb]
     rgb_adjusted = []
 
-    for c in rgb_list:
-        rgb_adjusted.append(max(0, min(255, c * brightness)))
-    
+    for c in rgb:
+        new_val = int(max(0, min(255, c * brightness)))
+        rgb_adjusted.append(new_val)
 
-    return tuple(int(c) for c in rgb_adjusted)
+    return tuple(rgb_adjusted)

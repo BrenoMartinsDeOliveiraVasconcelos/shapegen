@@ -5,15 +5,15 @@
         "base": [119, 191, 255]},
     {
         "level": 96,
-        "variation": 1,
+        "variation": 4,
         "base": [234, 242, 119]},
     {
-        "level": 200,
+        "level": 180,
         "variation": 32,
         "base": [37, 189, 57]},
     {
-        "level": 232,
-        "variation": 8,
+        "level": 216,
+        "variation": 16,
         "base": [89, 89, 89]
     },
     {
