@@ -22,9 +22,13 @@ def generate_noise_map(width, height, scale=100.0, octaves=6, persistence=0.5, l
     xv, yv = np.meshgrid(x, y)
     
     noise_map = np.zeros((height, width))
-    
+    total_pixels = width * height
+    step = 0
     for i in range(height):
         for j in range(width):
+            step += 1
+            
+            print(f"[{percent(step, total_pixels):.2f}%] Generating noise map {step}/{total_pixels}: ({j}, {i})")
             noise_map[i, j] = snoise2(yv[i, j], xv[i, j],
                                       octaves=octaves,
                                       persistence=persistence,
@@ -82,3 +86,7 @@ def change_brightness(rgb: tuple, brightness: float) -> tuple:
         rgb_adjusted.append(new_val)
 
     return tuple(rgb_adjusted)
+
+
+def percent(a, b)->float:
+    return (a / b) * 100

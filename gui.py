@@ -56,21 +56,25 @@ class TerrainWorker(QThread):
             for x in range(nmap.shape[1]):
                 step += 1
                 value = lib.noise_color(int(nmap[y, x] * 255), variation=variation, terrains=self.terrains)
-                img = lib.draw_pixel(img, x, y, value)
-                
 
+                print(f"[{lib.percent(step, total_pixels):.2f}%] Generating color map {step}/{total_pixels}: ({x}, {y}) COLOR rgb({value})")
+                
+                img = lib.draw_pixel(img, x, y, value)
                 self.progress.emit(step, total_pixels)
         
         img_final = lib.scale_image(img, w, h)
         
         # Save to file
+        print("Writing data...")
         img_final.save(OUTPUT_FN)
+        print("Loading to GUI...")
         qimage = QImage(OUTPUT_FN)
         
         # CRITICAL FIX: Create a deep copy. 
         # This detaches the QImage from the temporary 'data' buffer.
         qimage_safe = qimage.copy()
         
+        print("Finished!")
         self.finished.emit(qimage_safe)
 
 
@@ -408,7 +412,7 @@ class MainWindow(QMainWindow):
         self.worker.start()
         
     def update_progress(self, current, total):
-        percent = (current / total) * 100
+        percent = lib.percent(current, total)
         self.progress_label.setText(f"Generating... {percent:.2f}%")
         
     def on_generation_finished(self, qimage):
