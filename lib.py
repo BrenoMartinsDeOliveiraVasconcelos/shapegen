@@ -14,7 +14,7 @@ def draw_pixel(image, x, y, color):
     draw.point((x, y), fill=color)
     return image
 
-def generate_noise_map(width, height, scale=100.0, octaves=6, persistence=0.5, lacunarity=2.0, seed=0, pixelation_levels=16):
+def generate_noise_map(width, height, scale=100.0, octaves=6, persistence=0.5, lacunarity=2.0, seed=0):
     x = np.linspace(0, scale, width, endpoint=False)
     y = np.linspace(0, scale, height, endpoint=False)
     
@@ -23,7 +23,7 @@ def generate_noise_map(width, height, scale=100.0, octaves=6, persistence=0.5, l
     noise_map = np.zeros((height, width))
     total_pixels = width * height
     step = 0
-    seed_divisor = 100
+    seed_divisor = 10
     for i in range(height):
         for j in range(width):
             step += 1
@@ -41,9 +41,13 @@ def generate_noise_map(width, height, scale=100.0, octaves=6, persistence=0.5, l
     if noise_max - noise_min > 0:
         noise_map = (noise_map - noise_min) / (noise_max - noise_min)
     
-    # Pixelate the noise map
+    return noise_map
+
+
+def pixelate_map(noise_map, pixelation_levels):
     noise_normalized = (noise_map - noise_map.min()) / (noise_map.max() - noise_map.min())
     noise_quantized = np.floor(noise_normalized * pixelation_levels) / pixelation_levels
+
     return noise_quantized
 
 

@@ -11,7 +11,7 @@ from PyQt6.QtGui import QImage, QPixmap, QFont
 import lib
 
 SEED_MIN = 0
-SEED_MAX = 10000000
+SEED_MAX = 100000
 OUTPUT_FN = "output.png"
 
 class TerrainWorker(QThread):
@@ -37,20 +37,43 @@ class TerrainWorker(QThread):
         nmap = lib.generate_noise_map(
             w, h, 
             scale=scale, 
-            pixelation_levels=pixelation_levels, 
             octaves=octaves, 
             persistence=0.5, 
             seed=seed, 
             lacunarity=2.0
         )
+
+        nmap_pixel = lib.pixelate_map(nmap, pixelation_levels)
+
+        # Save noise map w/o pixelation
+        noise_img = lib.create_image(w, h, (0, 0, 0))
+        step = 0
+        for y in range(nmap.shape[0]):
+            for x in range(nmap.shape[1]):
+                step += 1
+                value = int(nmap[y, x] * 255)
+                noise_img = lib.draw_pixel(noise_img, x, y, (value, value, value))
+        noise_img.save("noise.png")
+
+
+        # Save noise map w/ pixelation
+        pixel_img = lib.create_image(w, h, (0, 0, 0))
+        step = 0
+        for y in range(nmap_pixel.shape[0]):
+            for x in range(nmap_pixel.shape[1]):
+                step += 1
+                value = int(nmap_pixel[y, x] * 255)
+                pixel_img = lib.draw_pixel(pixel_img, x, y, (value, value, value))
+        pixel_img.save("pixel.png")
         
         # Create image
         img = lib.create_image(w, h, (0, 0, 0))
-        total_pixels = nmap.shape[0] * nmap.shape[1]
+        total_pixels = nmap_pixel.shape[0] * nmap_pixel.shape[1]
         step = 0
-        
-        for y in range(nmap.shape[0]):
-            for x in range(nmap.shape[1]):
+
+        # Save colored version
+        for y in range(nmap_pixel.shape[0]):
+            for x in range(nmap_pixel.shape[1]):
                 step += 1
                 value = lib.noise_color(int(nmap[y, x] * 255), variation=variation, terrains=self.terrains)
 
@@ -59,11 +82,10 @@ class TerrainWorker(QThread):
                 img = lib.draw_pixel(img, x, y, value)
                 self.progress.emit(step, total_pixels)
         
-        img_final = lib.scale_image(img, w, h)
         
         # Save to file
         print("Writing data...")
-        img_final.save(OUTPUT_FN)
+        img.save(OUTPUT_FN)
         print("Loading to GUI...")
         qimage = QImage(OUTPUT_FN)
         
@@ -104,9 +126,9 @@ class TerrainWidget(QWidget):
         self.level_spin = QSpinBox()
         self.level_spin.setRange(0, 256)
         self.level_spin.setValue(self.terrain_data['level'])
-        form.addRow("Level:", self.level_spin)
+        form.addRow("Top Level:", self.level_spin)
         
-        # Variation (optional)
+        # Variation
         self.variation_spin = QSpinBox()
         self.variation_spin.setRange(0, 255)
         if 'variation' in self.terrain_data:
@@ -184,17 +206,17 @@ class MainWindow(QMainWindow):
         self.terrains = [
             {
                 "name": "Ocean",
-                "level": 130,
-                "base": [41, 45, 171]
+                "level": 135,
+                "base": [34, 63, 168]
             },
             {   
                 "name": "Beach",
-                "level": 150,
+                "level": 160,
                 "base": [168, 179, 8]
             },
             {
                 "name": "Grassland",
-                "level": 190,
+                "level": 195,
                 "base": [33, 98, 38]
             },
             {
@@ -214,7 +236,7 @@ class MainWindow(QMainWindow):
     def setup_ui(self):
         self.setWindowTitle("Terrain Generator")
         window_w = 1330
-        window_h = 768
+        window_h = 800
         self.resize(window_w, window_h)
         self.setMaximumHeight(window_h)
         self.setMaximumWidth(window_w)
@@ -258,19 +280,19 @@ class MainWindow(QMainWindow):
         # Octaves
         self.octaves_spin = QSpinBox()
         self.octaves_spin.setRange(1, 16)
-        self.octaves_spin.setValue(16)
+        self.octaves_spin.setValue(8)
         params_layout.addRow("Octaves:", self.octaves_spin)
         
         # Pixelation Levels
         self.pixelation_spin = QSpinBox()
         self.pixelation_spin.setRange(2, 512)
-        self.pixelation_spin.setValue(64)
-        params_layout.addRow("Pixelation Levels:", self.pixelation_spin)
+        self.pixelation_spin.setValue(256)
+        params_layout.addRow("Pixelation Level:", self.pixelation_spin)
         
         # Variation
         self.variation_spin = QSpinBox()
         self.variation_spin.setRange(0, 255)
-        self.variation_spin.setValue(8)
+        self.variation_spin.setValue(255)
         params_layout.addRow("Variation:", self.variation_spin)
         
         # Seed
@@ -386,7 +408,7 @@ class MainWindow(QMainWindow):
         # Disable generate button during generation
         self.generate_btn.setEnabled(False)
         self.generate_btn.setText("Generating...")
-        self.progress_label.setText("Starting terrain generation...")
+        self.progress_label.setText("Generating noise map...")
         
         # Get parameters
         params = {
@@ -410,7 +432,7 @@ class MainWindow(QMainWindow):
         
     def update_progress(self, current, total):
         percent = lib.percent(current, total)
-        self.progress_label.setText(f"Generating... {percent:.2f}%")
+        self.progress_label.setText(f"Generating color map... {percent:.2f}%")
         
     def on_generation_finished(self, qimage):
         # Display the image
