@@ -33,6 +33,7 @@ Linux: libqt6, libpython3-dev, xcb
 | 2048x2048 | Dual core | 1 GB |
 | 4096x4096 | Dual core | 4 GB |
 | 8192x8192 | Dual core | 12 GB |
+
 *Tested with defaults
 
 
