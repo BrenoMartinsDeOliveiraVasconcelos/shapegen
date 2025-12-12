@@ -1,0 +1,24 @@
+[
+    {
+        "level": 64,
+        "variation": 1,
+        "base": [119, 191, 255]},
+    {
+        "level": 96,
+        "variation": 1,
+        "base": [234, 242, 119]},
+    {
+        "level": 200,
+        "variation": 32,
+        "base": [37, 189, 57]},
+    {
+        "level": 232,
+        "variation": 8,
+        "base": [89, 89, 89]
+    },
+    {
+        "level": 256,
+        "variation": 1,
+        "base": [237, 237, 235]
+    }
+]
