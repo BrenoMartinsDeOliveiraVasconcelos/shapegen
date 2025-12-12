@@ -1,13 +1,10 @@
 import sys
 import random
-import os
-from PIL import Image
-from PIL.ImageQt import ImageQt
 import numpy as np
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QSpinBox, QDoubleSpinBox, QComboBox, QPushButton,
-    QGroupBox, QFormLayout, QScrollArea, QGridLayout, QFrame, QLineEdit, QColorDialog
+    QLabel, QSpinBox, QDoubleSpinBox, QPushButton,
+    QGroupBox, QFormLayout, QScrollArea, QLineEdit, QColorDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap, QFont

@@ -1,8 +1,7 @@
 import PIL
 from PIL import Image, ImageDraw
 import numpy as np
-from noise import snoise2, pnoise2
-import json
+from noise import snoise2
 
 def create_image(width, height, color):
     """Create a new image with the specified width, height, and color."""
