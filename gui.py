@@ -305,7 +305,7 @@ class MainWindow(QMainWindow):
         self.random_seed_btn = QPushButton("Random Seed")
         self.random_seed_btn.clicked.connect(self.randomize_seed)
         params_layout.addRow("", self.random_seed_btn)
-        
+
         params_group.setLayout(params_layout)
         left_layout.addWidget(params_group)
         
@@ -395,6 +395,7 @@ class MainWindow(QMainWindow):
             self.terrains.pop()
             widget = self.terrain_widgets.pop()
             widget.deleteLater()
+
             
     def get_current_terrains(self):
         terrains = []
