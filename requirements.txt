@@ -1,0 +1,4 @@
+pillow
+numpy
+noise
+PyQt6
