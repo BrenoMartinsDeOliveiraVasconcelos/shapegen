@@ -89,7 +89,6 @@ class TerrainWorker(QThread):
 
         for y in range(nmap.shape[0]):
             for x in range(nmap.shape[1]):
-                frame += 1
                 value = int(nmap[y, x] * 255)
                 noise_img = lib.draw_pixel(noise_img, x, y, (value, value, value))
                 step += step_add
@@ -101,7 +100,6 @@ class TerrainWorker(QThread):
         pixel_img = lib.create_image(w, h, (0, 0, 0))
         for y in range(nmap_pixel.shape[0]):
             for x in range(nmap_pixel.shape[1]):
-                frame += 1
                 value = int(nmap_pixel[y, x] * 255)
                 pixel_img = lib.draw_pixel(pixel_img, x, y, (value, value, value))
                 step += step_add
@@ -117,7 +115,6 @@ class TerrainWorker(QThread):
         # Save colored version
         for y in range(nmap_pixel.shape[0]):
             for x in range(nmap_pixel.shape[1]):
-                frame += 1
                 value = lib.noise_color(int(nmap[y, x] * 255), variation=variation, terrains=self.terrains)
                 
                 img = lib.draw_pixel(img, x, y, value)
@@ -132,6 +129,7 @@ class TerrainWorker(QThread):
             for file in files:
                 for height in range(h):
                     for width in range(w):
+                        frame += 1
                         temp_file = lib.draw_pixel(temp_file, width, height, file.getpixel((width, height)))
                         temp_file.save(temp_frame_name)
                         self.append_video(temp_frame_name, frame, frame_count)
