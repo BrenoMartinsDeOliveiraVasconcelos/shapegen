@@ -133,7 +133,8 @@ class TerrainWorker(QThread):
                 for height in range(h):
                     for width in range(w):
                         temp_file = lib.draw_pixel(temp_file, width, height, file.getpixel((width, height)))
-                        self.append_video(temp_file, frame, frame_count)
+                        temp_file.save(temp_frame_name)
+                        self.append_video(temp_frame_name, frame, frame_count)
                         step += step_add
                         self.progress_emit(step, total_steps)
                         
