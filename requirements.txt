@@ -2,3 +2,5 @@ pillow
 numpy
 noise
 PyQt6
+imageio
+imageio[ffmpeg]

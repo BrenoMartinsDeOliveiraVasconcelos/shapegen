@@ -125,3 +125,5 @@ dmypy.json
 
 steps
 *.png
+frames
+*.mp4

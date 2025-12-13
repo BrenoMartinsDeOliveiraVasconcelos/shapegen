@@ -1,6 +1,6 @@
 import sys
+from sys import argv as args
 import random
-import numpy as np
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QSpinBox, QDoubleSpinBox, QPushButton,
@@ -9,6 +9,11 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap, QFont
 import lib
+import os
+import imageio.v3 as iio
+import imageio
+import time
+import datetime
 
 SEED_MIN = 0
 SEED_MAX = 100000
@@ -17,12 +22,41 @@ OUTPUT_FN = "output.png"
 class TerrainWorker(QThread):
     """Worker thread for terrain generation to prevent UI freezing"""
     finished = pyqtSignal(QImage)
-    progress = pyqtSignal(int, int)  # current, total
+    progress = pyqtSignal(int, int, float)  # current, total
     
     def __init__(self, params, terrains):
         super().__init__()
         self.params = params
         self.terrains = terrains
+        self.start_time = time.time()
+        self.last_emit = time.time()
+        self.video_filename = "output.mp4"
+
+    
+    def start_record(self):
+        self.writer = imageio.get_writer(self.video_filename, fps=60)
+
+
+    def append_video(self, frame, frame_num, frame_count):
+        print(f"Adding frame {frame_num}/{frame_count}")
+        image = iio.imread(frame)
+        self.writer.append_data(image)
+
+    
+    def stop_record(self):
+        if self.writer is None:
+            return
+        
+        self.writer.close()        
+
+
+    def progress_emit(self, current, total):
+        if time.time() - self.last_emit < 0.1:
+            return
+        self.last_emit = time.time()
+        total_time = time.time() - self.start_time
+        self.progress.emit(current, total, total_time)
+
         
     def run(self):
         w = self.params['w']
@@ -42,58 +76,86 @@ class TerrainWorker(QThread):
             seed=seed, 
             lacunarity=2.0
         )
+        record_img = nmap
 
         nmap_pixel = lib.pixelate_map(nmap, pixelation_levels)
 
         # Save noise map w/o pixelation
         noise_img = lib.create_image(w, h, (0, 0, 0))
+        frame = 0
+
+        frame_count = (nmap.shape[0] * nmap.shape[1])*3
+        total_steps = frame_count
+        step_add = 1
+        if "record" in args:
+            total_steps = total_steps * 3
+            step_add = 2
+            self.start_record()
         step = 0
+        temp_frame_name = "frame.png"
+
         for y in range(nmap.shape[0]):
             for x in range(nmap.shape[1]):
-                step += 1
+                frame += 1
                 value = int(nmap[y, x] * 255)
                 noise_img = lib.draw_pixel(noise_img, x, y, (value, value, value))
+                if "record" in args:
+                    noise_img.save(temp_frame_name)
+                    self.append_video(temp_frame_name, frame, frame_count=frame_count)
+                    os.remove(temp_frame_name)
+                step += step_add
+                self.progress_emit(step, total_steps)
         noise_img.save("noise.png")
 
+        record_img = noise_img
 
         # Save noise map w/ pixelation
         pixel_img = lib.create_image(w, h, (0, 0, 0))
-        step = 0
         for y in range(nmap_pixel.shape[0]):
             for x in range(nmap_pixel.shape[1]):
-                step += 1
+                frame += 1
                 value = int(nmap_pixel[y, x] * 255)
                 pixel_img = lib.draw_pixel(pixel_img, x, y, (value, value, value))
+                if "record" in args:
+                    lib.draw_pixel(record_img, x, y, (value, value, value))
+                    record_img.save(temp_frame_name)
+                    self.append_video(temp_frame_name, frame, frame_count=frame_count)
+                    os.remove(temp_frame_name)
+                step += step_add
+                self.progress_emit(step, total_steps)
+
+                    
         pixel_img.save("pixel.png")
+
+        record_img = pixel_img
         
         # Create image
         img = lib.create_image(w, h, (0, 0, 0))
-        total_pixels = nmap_pixel.shape[0] * nmap_pixel.shape[1]
-        step = 0
 
         # Save colored version
         for y in range(nmap_pixel.shape[0]):
             for x in range(nmap_pixel.shape[1]):
-                step += 1
+                frame += 1
                 value = lib.noise_color(int(nmap[y, x] * 255), variation=variation, terrains=self.terrains)
-
-                print(f"[{lib.percent(step, total_pixels):.2f}%] Generating color map {step}/{total_pixels}: ({x}, {y}) COLOR rgb({value})")
                 
                 img = lib.draw_pixel(img, x, y, value)
-                self.progress.emit(step, total_pixels)
-        
-        
+                if "record" in args:
+                    lib.draw_pixel(record_img, x, y, value)
+                    record_img.save(temp_frame_name)
+                    self.append_video(temp_frame_name, frame, frame_count=frame_count)
+                    os.remove(temp_frame_name)
+                step += step_add
+                self.progress_emit(step, total_steps)
+
         # Save to file
         print("Writing data...")
         img.save(OUTPUT_FN)
         print("Loading to GUI...")
         qimage = QImage(OUTPUT_FN)
-        
-        # CRITICAL FIX: Create a deep copy. 
-        # This detaches the QImage from the temporary 'data' buffer.
         qimage_safe = qimage.copy()
         
         print("Finished!")
+        self.stop_record()
         self.finished.emit(qimage_safe)
 
 
@@ -431,9 +493,12 @@ class MainWindow(QMainWindow):
         self.worker.finished.connect(self.on_generation_finished)
         self.worker.start()
         
-    def update_progress(self, current, total):
+    def update_progress(self, current, total, time_elapsed):
         percent = lib.percent(current, total)
-        self.progress_label.setText(f"Generating color map... {percent:.2f}%")
+        formated_time =datetime.datetime.fromtimestamp(time_elapsed).strftime('%H:%M:%S')
+        progress_str = f"Processing... {percent:.2f}% ({current}/{total}) - {formated_time}"
+        print(progress_str)
+        self.progress_label.setText(progress_str)
         
     def on_generation_finished(self, qimage):
         # Display the image
