@@ -492,7 +492,7 @@ class MainWindow(QMainWindow):
         percent = lib.percent(current, total)
         estimated_time = lib.estimate_end_time(percent, time_elapsed)
         progress_str = f"Processing... {percent:.2f}% - {lib.seconds_to_human(time_elapsed)} (Estimated: {lib.seconds_to_human(estimated_time)})"
-        progress_str += f"\n{current}/{total} ({lib.average_speed(current, time_elapsed):.2f} steps/s)"
+        progress_str += f"\n{current}/{total}"
         print(progress_str)
         self.progress_label.setText(progress_str)
         
