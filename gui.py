@@ -121,6 +121,9 @@ class TerrainWorker(QThread):
                 step += step_add
                 self.progress_emit(step, total_steps)
 
+        print("Writing data...")
+        img.save(OUTPUT_FN)
+
         # Write video
         if "record" in args:
             self.start_record()
@@ -140,8 +143,6 @@ class TerrainWorker(QThread):
             self.stop_record()
 
         # Save to file
-        print("Writing data...")
-        img.save(OUTPUT_FN)
         print("Loading to GUI...")
         qimage = QImage(OUTPUT_FN)
         qimage_safe = qimage.copy()
