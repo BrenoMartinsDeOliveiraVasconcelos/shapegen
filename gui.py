@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap, QFont
 import lib
-import os
 import imageio.v3 as iio
 import imageio
 import time
@@ -43,10 +42,7 @@ class TerrainWorker(QThread):
         self.writer.append_data(image)
 
     
-    def stop_record(self):
-        if self.writer is None:
-            return
-        
+    def stop_record(self):        
         self.writer.close()        
 
 
@@ -102,7 +98,6 @@ class TerrainWorker(QThread):
                 if "record" in args:
                     noise_img.save(temp_frame_name)
                     self.append_video(temp_frame_name, frame, frame_count=frame_count)
-                    os.remove(temp_frame_name)
                 step += step_add
                 self.progress_emit(step, total_steps)
         noise_img.save("noise.png")
@@ -120,7 +115,6 @@ class TerrainWorker(QThread):
                     lib.draw_pixel(record_img, x, y, (value, value, value))
                     record_img.save(temp_frame_name)
                     self.append_video(temp_frame_name, frame, frame_count=frame_count)
-                    os.remove(temp_frame_name)
                 step += step_add
                 self.progress_emit(step, total_steps)
 
@@ -143,7 +137,6 @@ class TerrainWorker(QThread):
                     lib.draw_pixel(record_img, x, y, value)
                     record_img.save(temp_frame_name)
                     self.append_video(temp_frame_name, frame, frame_count=frame_count)
-                    os.remove(temp_frame_name)
                 step += step_add
                 self.progress_emit(step, total_steps)
 
@@ -155,7 +148,9 @@ class TerrainWorker(QThread):
         qimage_safe = qimage.copy()
         
         print("Finished!")
-        self.stop_record()
+        
+        if "record" in args:
+            self.stop_record()
         self.finished.emit(qimage_safe)
 
 
@@ -495,8 +490,9 @@ class MainWindow(QMainWindow):
         
     def update_progress(self, current, total, time_elapsed):
         percent = lib.percent(current, total)
-        formated_time =datetime.datetime.fromtimestamp(time_elapsed).strftime('%H:%M:%S')
-        progress_str = f"Processing... {percent:.2f}% ({current}/{total}) - {formated_time}"
+        estimated_time = lib.estimate_end_time(percent, time_elapsed)
+        formated_time = lib.seconds_to_human(time_elapsed)
+        progress_str = f"Processing... {percent:.2f}%- {formated_time} (Estimated: {lib.seconds_to_human(estimated_time)})"
         print(progress_str)
         self.progress_label.setText(progress_str)
         

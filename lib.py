@@ -94,3 +94,15 @@ def change_brightness(rgb: tuple, brightness: float) -> tuple:
 
 def percent(a, b)->float:
     return (a / b) * 100
+
+
+def seconds_to_human(seconds: float)->str:
+    seconds = round(seconds)
+
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    return "%d:%02d:%02d" % (h, m, s)
+
+
+def estimate_end_time(percent: float, time_elapsed: float)->float:
+    return (100*time_elapsed)/percent
