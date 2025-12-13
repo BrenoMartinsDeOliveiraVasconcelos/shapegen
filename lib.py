@@ -106,3 +106,6 @@ def seconds_to_human(seconds: float)->str:
 
 def estimate_end_time(percent: float, time_elapsed: float)->float:
     return (100*time_elapsed)/percent
+
+def average_speed(steps: int, time_elapsed: float)->float:
+    return steps/time_elapsed
