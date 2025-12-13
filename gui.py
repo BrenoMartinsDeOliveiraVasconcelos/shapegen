@@ -12,7 +12,7 @@ import lib
 import imageio.v3 as iio
 import imageio
 import time
-import datetime
+import PIL
 
 SEED_MIN = 0
 SEED_MAX = 100000
@@ -72,7 +72,6 @@ class TerrainWorker(QThread):
             seed=seed, 
             lacunarity=2.0
         )
-        record_img = nmap
 
         nmap_pixel = lib.pixelate_map(nmap, pixelation_levels)
 
@@ -85,8 +84,6 @@ class TerrainWorker(QThread):
         step_add = 1
         if "record" in args:
             total_steps = total_steps * 3
-            step_add = 2
-            self.start_record()
         step = 0
         temp_frame_name = "frame.png"
 
@@ -95,14 +92,10 @@ class TerrainWorker(QThread):
                 frame += 1
                 value = int(nmap[y, x] * 255)
                 noise_img = lib.draw_pixel(noise_img, x, y, (value, value, value))
-                if "record" in args:
-                    noise_img.save(temp_frame_name)
-                    self.append_video(temp_frame_name, frame, frame_count=frame_count)
                 step += step_add
                 self.progress_emit(step, total_steps)
         noise_img.save("noise.png")
 
-        record_img = noise_img
 
         # Save noise map w/ pixelation
         pixel_img = lib.create_image(w, h, (0, 0, 0))
@@ -111,17 +104,12 @@ class TerrainWorker(QThread):
                 frame += 1
                 value = int(nmap_pixel[y, x] * 255)
                 pixel_img = lib.draw_pixel(pixel_img, x, y, (value, value, value))
-                if "record" in args:
-                    lib.draw_pixel(record_img, x, y, (value, value, value))
-                    record_img.save(temp_frame_name)
-                    self.append_video(temp_frame_name, frame, frame_count=frame_count)
                 step += step_add
                 self.progress_emit(step, total_steps)
 
                     
         pixel_img.save("pixel.png")
 
-        record_img = pixel_img
         
         # Create image
         img = lib.create_image(w, h, (0, 0, 0))
@@ -133,12 +121,24 @@ class TerrainWorker(QThread):
                 value = lib.noise_color(int(nmap[y, x] * 255), variation=variation, terrains=self.terrains)
                 
                 img = lib.draw_pixel(img, x, y, value)
-                if "record" in args:
-                    lib.draw_pixel(record_img, x, y, value)
-                    record_img.save(temp_frame_name)
-                    self.append_video(temp_frame_name, frame, frame_count=frame_count)
                 step += step_add
                 self.progress_emit(step, total_steps)
+
+        # Write video
+        if "record" in args:
+            self.start_record()
+            files = [noise_img, nmap_pixel, img]
+            temp_file = lib.create_image(w, h, (0, 0, 0))
+            for file in files:
+                for height in range(h):
+                    for width in range(w):
+                        temp_file = lib.draw_pixel(temp_file, width, height, file.getpixel((width, height)))
+                        self.append_video(temp_file, frame, frame_count)
+                        step += step_add
+                        self.progress_emit(step, total_steps)
+                        
+
+            self.stop_record()
 
         # Save to file
         print("Writing data...")
@@ -148,9 +148,6 @@ class TerrainWorker(QThread):
         qimage_safe = qimage.copy()
         
         print("Finished!")
-        
-        if "record" in args:
-            self.stop_record()
         self.finished.emit(qimage_safe)
 
 
