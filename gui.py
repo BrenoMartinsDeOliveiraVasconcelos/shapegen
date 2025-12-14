@@ -117,7 +117,7 @@ class TerrainWorker(QThread):
 
         scale = self.params['scale']
         octaves = self.params['octaves']
-        pixelation_levels = self.params['pixelation_levels']
+        #pixelation_levels = self.params['pixelation_levels']
         variation = self.params['variation']
         seed = self.params['seed']
         
@@ -131,13 +131,13 @@ class TerrainWorker(QThread):
             lacunarity=2.0
         )
 
-        nmap_pixel = lib.pixelate_map(nmap, pixelation_levels)
+        #nmap_pixel = lib.pixelate_map(nmap, pixelation_levels)
 
         # Save noise map w/o pixelation
         noise_img = lib.create_image(w, h, (0, 0, 0))
         frame = 0
 
-        frame_count = (nmap.shape[0] * nmap.shape[1])*3
+        frame_count = (nmap.shape[0] * nmap.shape[1])*2
         self.frames = frame_count
         total_steps = frame_count
         phase = 1
@@ -152,27 +152,13 @@ class TerrainWorker(QThread):
                 step += step_add
                 self.progress_emit(step, total_steps, phase)
         noise_img.save("noise.png")
-
-
-        # Save noise map w/ pixelation
-        pixel_img = lib.create_image(w, h, (0, 0, 0))
-        for y in range(nmap_pixel.shape[0]):
-            for x in range(nmap_pixel.shape[1]):
-                value = int(nmap_pixel[y, x] * 255)
-                pixel_img = lib.draw_pixel(pixel_img, x, y, (value, value, value))
-                step += step_add
-                self.progress_emit(step, total_steps, phase)
-
-                    
-        pixel_img.save("pixel.png")
-
         
         # Create image
         img = lib.create_image(w, h, (0, 0, 0))
 
         # Save colored version
-        for y in range(nmap_pixel.shape[0]):
-            for x in range(nmap_pixel.shape[1]):
+        for y in range(nmap.shape[0]):
+            for x in range(nmap.shape[1]):
                 value = lib.noise_color(int(nmap[y, x] * 255), variation=variation, terrains=self.terrains)
                 
                 img = lib.draw_pixel(img, x, y, value)
@@ -196,7 +182,7 @@ class TerrainWorker(QThread):
             
             lib.averages_step = []
             self.start_record()
-            files = [noise_img, pixel_img, img]
+            files = [noise_img, img]
             temp_file = lib.create_image(w, h, (0, 0, 0))
             for file in files:
                 for height in range(h):
@@ -328,29 +314,49 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.terrains = [
             {
-                "name": "Ocean",
-                "level": 100,
-                "base": [34, 63, 168]
-            },
-            {   
-                "name": "Beach",
-                "level": 120,
-                "base": [201, 185, 12]
+                "name": "Abyss",
+                "level": 60,
+                "base": [15, 20, 30]  # Very dark, almost black blue
             },
             {
-                "name": "Grassland",
-                "level": 160,
-                "base": [7, 119, 37]
+                "name": "Deep Sea",
+                "level": 90,
+                "base": [30, 45, 60]  # Desaturated dark slate
             },
             {
-                "name": "Mountains",
-                "level": 180,
-                "base": [50, 50, 50]
+                "name": "Shallows",
+                "level": 105,
+                "base": [50, 70, 80]  # Muted teal-grey
             },
             {
-                "name": "Snow",
+                "name": "Silt & Clay",
+                "level": 115,
+                "base": [100, 95, 85]  # Pallid, greyish beige (no bright yellow)
+            },
+            {
+                "name": "Dead Grass",
+                "level": 135,
+                "base": [85, 90, 70]  # Pale olive/drab
+            },
+            {
+                "name": "Deep Woods",
+                "level": 165,
+                "base": [45, 60, 50]  # Dark, desaturated pine green
+            },
+            {
+                "name": "Stone",
+                "level": 195,
+                "base": [60, 60, 65]  # Dark slate grey
+            },
+            {
+                "name": "Peaks",
+                "level": 225,
+                "base": [100, 100, 110] # Cold, lighter grey
+            },
+            {
+                "name": "Glacier",
                 "level": 256,
-                "base": [255, 255, 255]
+                "base": [180, 190, 200] # Dirty/Muted white
             }
         ]
         self.worker = None
@@ -405,12 +411,6 @@ class MainWindow(QMainWindow):
         self.octaves_spin.setRange(1, 16)
         self.octaves_spin.setValue(8)
         params_layout.addRow("Octaves:", self.octaves_spin)
-        
-        # Pixelation Levels
-        self.pixelation_spin = QSpinBox()
-        self.pixelation_spin.setRange(1, MAX_TERRAIN_SIZE)
-        self.pixelation_spin.setValue(256)
-        params_layout.addRow("Pixelation Level:", self.pixelation_spin)
         
         # Variation
         self.variation_spin = QSpinBox()
@@ -540,7 +540,6 @@ class MainWindow(QMainWindow):
             'h': self.h_spin.value(),
             'scale': self.scale_spin.value(),
             'octaves': self.octaves_spin.value(),
-            'pixelation_levels': self.pixelation_spin.value(),
             'variation': self.variation_spin.value(),
             'seed': self.seed_spin.value()
         }
