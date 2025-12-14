@@ -33,7 +33,7 @@ class TerrainWorker(QThread):
         self.last_emit = time.time()
         self.video_filename = "output.mp4"
         self.frame_buffer = [] # type: list[Image]
-        self.buffer_size = 1000
+        self.buffer_size = 4000
         self.total_time = 0
         self.total_phases = 1
         self.target_resolutuion_h = 1024
