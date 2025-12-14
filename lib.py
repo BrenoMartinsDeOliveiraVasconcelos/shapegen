@@ -3,6 +3,8 @@ from PIL import Image, ImageDraw
 import numpy as np
 from noise import snoise2
 
+averages_step = []
+
 def create_image(width, height, color):
     """Create a new image with the specified width, height, and color."""
     return Image.new("RGB", (width, height), color)
@@ -104,5 +106,16 @@ def seconds_to_human(seconds: float)->str:
     return "%d:%02d:%02d" % (h, m, s)
 
 
-def estimate_end_time(percent: float, time_elapsed: float)->float:
-    return (100*time_elapsed)/percent
+def average(list_numbers: list)->float:
+    return sum(list_numbers) / len(list_numbers)
+
+
+def estimate_time(percent: float, elapsed_time: float)->dict:
+    percent_per_second = percent / elapsed_time
+    averages_step.append(percent_per_second)
+    current_avg = average(averages_step)
+    print(len(averages_step), current_avg)
+
+    total_estimate_time = (100 - percent) / current_avg
+
+    return total_estimate_time

@@ -12,16 +12,18 @@ import lib
 import imageio.v3 as iio
 import imageio
 import time
-import PIL
+import numpy as np
+from PIL.Image import Image, NEAREST
 
 SEED_MIN = 0
 SEED_MAX = 100000
 OUTPUT_FN = "output.png"
+MAX_TERRAIN_SIZE = 8192
 
 class TerrainWorker(QThread):
     """Worker thread for terrain generation to prevent UI freezing"""
     finished = pyqtSignal(QImage)
-    progress = pyqtSignal(int, int, float)  # current, total
+    progress = pyqtSignal(int, int, float, int, int)  # current, total
     
     def __init__(self, params, terrains):
         super().__init__()
@@ -30,33 +32,89 @@ class TerrainWorker(QThread):
         self.start_time = time.time()
         self.last_emit = time.time()
         self.video_filename = "output.mp4"
+        self.frame_buffer = [] # type: list[Image]
+        self.buffer_size = 1000
+        self.total_time = 0
+        self.total_phases = 1
+        self.target_resolutuion_h = 1024
+        self.target_resolutuion_w = 1024
+        self.w = self.params['w']
+        self.h = self.params['h']
+        self.video_duration = 240
+        self.frames = 0
+
+        if "record" in args:
+            self.total_phases = 2
+
+
+    def _flush_buffer(self):
+        print("Flushing buffer to disk...")
+        frame_num = 0
+        for frame in self.frame_buffer:
+            frame_num += 1
+            print(f"Flushing {frame_num}/{len(self.frame_buffer)}")
+
+            times_bigger_h = self.target_resolutuion_h / self.h
+            times_bigger_w = self.target_resolutuion_h / self.w
+
+            if times_bigger_h >= 1 :
+                times_bigger_h = round(times_bigger_h)
+            
+            if times_bigger_w >= 1:
+                times_bigger_w = round(times_bigger_w)
+
+            if times_bigger_h < 1:
+                times_bigger_h = round(times_bigger_h, 1)
+
+            if times_bigger_w < 1:
+                times_bigger_w = round(times_bigger_w, 1)
+
+            final_resolution_h = int(self.h * times_bigger_h)
+            final_resolution_w = int(self.w * times_bigger_w)
+
+            frame = frame.resize((final_resolution_w, final_resolution_h), resample=NEAREST)
+
+            frame_np = np.asarray(frame)
+
+            self.writer.append_data(frame_np)
+
+        self.frame_buffer.clear()
 
     
     def start_record(self):
-        self.writer = imageio.get_writer(self.video_filename, fps=60)
+        fps = round(self.frames / self.video_duration)
+
+        self.writer = imageio.get_writer(self.video_filename, fps=fps)
+        self.frame_buffer = []
 
 
-    def append_video(self, frame, frame_num, frame_count):
-        print(f"Adding frame {frame_num}/{frame_count}")
-        image = iio.imread(frame)
-        self.writer.append_data(image)
+    def append_video(self, frame: Image, frame_num, frame_count):
+        print(f"Buffering frame {frame_num}/{frame_count}")
+        self.frame_buffer.append(frame)
 
-    
-    def stop_record(self):        
+        if len(self.frame_buffer) >= self.buffer_size:
+            self._flush_buffer()
+
+
+    def stop_record(self):
+        if self.frame_buffer:
+            self._flush_buffer()
+
         self.writer.close()        
 
 
-    def progress_emit(self, current, total):
+    def progress_emit(self, current, total, phase):
         if time.time() - self.last_emit < 0.1:
             return
         self.last_emit = time.time()
-        total_time = time.time() - self.start_time
-        self.progress.emit(current, total, total_time)
+        self.total_time = time.time() - self.start_time
+        self.progress.emit(current, total, self.total_time, phase, self.total_phases)
 
         
     def run(self):
-        w = self.params['w']
-        h = self.params['h']
+        w = self.w
+        h = self.h
+
         scale = self.params['scale']
         octaves = self.params['octaves']
         pixelation_levels = self.params['pixelation_levels']
@@ -80,10 +138,10 @@ class TerrainWorker(QThread):
         frame = 0
 
         frame_count = (nmap.shape[0] * nmap.shape[1])*3
+        self.frames = frame_count
         total_steps = frame_count
+        phase = 1
         step_add = 1
-        if "record" in args:
-            total_steps = total_steps * 3
         step = 0
         temp_frame_name = "frame.png"
 
@@ -92,7 +150,7 @@ class TerrainWorker(QThread):
                 value = int(nmap[y, x] * 255)
                 noise_img = lib.draw_pixel(noise_img, x, y, (value, value, value))
                 step += step_add
-                self.progress_emit(step, total_steps)
+                self.progress_emit(step, total_steps, phase)
         noise_img.save("noise.png")
 
 
@@ -103,7 +161,7 @@ class TerrainWorker(QThread):
                 value = int(nmap_pixel[y, x] * 255)
                 pixel_img = lib.draw_pixel(pixel_img, x, y, (value, value, value))
                 step += step_add
-                self.progress_emit(step, total_steps)
+                self.progress_emit(step, total_steps, phase)
 
                     
         pixel_img.save("pixel.png")
@@ -119,15 +177,26 @@ class TerrainWorker(QThread):
                 
                 img = lib.draw_pixel(img, x, y, value)
                 step += step_add
-                self.progress_emit(step, total_steps)
+                self.progress_emit(step, total_steps, phase)
 
         print("Writing data...")
         img.save(OUTPUT_FN)
 
         # Write video
         if "record" in args:
+            self.total_time = 0
+            self.start_time = time.time()
+            phase += 1
+            step = 0
+
+            # Adjusting buffer size for RAM-safe usage
+            base_pixels = 512*512
+            total_pixels = w * h
+            self.buffer_size = int((base_pixels / total_pixels) * self.buffer_size)
+            
+            lib.averages_step = []
             self.start_record()
-            files = [noise_img, nmap_pixel, img]
+            files = [noise_img, pixel_img, img]
             temp_file = lib.create_image(w, h, (0, 0, 0))
             for file in files:
                 for height in range(h):
@@ -135,9 +204,9 @@ class TerrainWorker(QThread):
                         frame += 1
                         temp_file = lib.draw_pixel(temp_file, width, height, file.getpixel((width, height)))
                         temp_file.save(temp_frame_name)
-                        self.append_video(temp_frame_name, frame, frame_count)
+                        self.append_video(temp_file.copy(), frame, frame_count)
                         step += step_add
-                        self.progress_emit(step, total_steps)
+                        self.progress_emit(step, total_steps, phase)
                         
 
             self.stop_record()
@@ -260,22 +329,22 @@ class MainWindow(QMainWindow):
         self.terrains = [
             {
                 "name": "Ocean",
-                "level": 135,
+                "level": 100,
                 "base": [34, 63, 168]
             },
             {   
                 "name": "Beach",
-                "level": 160,
-                "base": [168, 179, 8]
+                "level": 120,
+                "base": [201, 185, 12]
             },
             {
                 "name": "Grassland",
-                "level": 195,
-                "base": [33, 98, 38]
+                "level": 160,
+                "base": [7, 119, 37]
             },
             {
                 "name": "Mountains",
-                "level": 210,
+                "level": 180,
                 "base": [50, 50, 50]
             },
             {
@@ -312,16 +381,16 @@ class MainWindow(QMainWindow):
         
         # Width
         self.w_spin = QSpinBox()
-        self.w_spin.setRange(2, 8192)
+        self.w_spin.setRange(2, MAX_TERRAIN_SIZE)
         self.w_spin.setValue(1024)
-        self.w_spin.setSingleStep(1)
+        self.w_spin.setSingleStep(64)
         params_layout.addRow("Width:", self.w_spin)
         
         # Height
         self.h_spin = QSpinBox()
-        self.h_spin.setRange(2, 8192)
+        self.h_spin.setRange(2, MAX_TERRAIN_SIZE)
         self.h_spin.setValue(1024)
-        self.h_spin.setSingleStep(1)
+        self.h_spin.setSingleStep(64)
         params_layout.addRow("Height:", self.h_spin)
         
         # Scale
@@ -339,7 +408,7 @@ class MainWindow(QMainWindow):
         
         # Pixelation Levels
         self.pixelation_spin = QSpinBox()
-        self.pixelation_spin.setRange(2, 512)
+        self.pixelation_spin.setRange(1, MAX_TERRAIN_SIZE)
         self.pixelation_spin.setValue(256)
         params_layout.addRow("Pixelation Level:", self.pixelation_spin)
         
@@ -485,10 +554,12 @@ class MainWindow(QMainWindow):
         self.worker.finished.connect(self.on_generation_finished)
         self.worker.start()
         
-    def update_progress(self, current, total, time_elapsed):
+    def update_progress(self, current, total, time_elapsed, phase, total_phases):
         percent = lib.percent(current, total)
-        estimated_time = lib.estimate_end_time(percent, time_elapsed)
-        progress_str = f"Processing... {percent:.2f}% - {lib.seconds_to_human(time_elapsed)} (Estimated: {lib.seconds_to_human(estimated_time)})"
+        estimate = lib.estimate_time(percent, time_elapsed)
+        total_estm = lib.seconds_to_human(estimate)
+
+        progress_str = f"Processing ({phase}/{total_phases})... {percent:.4f}% - {lib.seconds_to_human(time_elapsed)} \n(ETA: {total_estm})"
         progress_str += f"\n{current}/{total}"
         print(progress_str)
         self.progress_label.setText(progress_str)
