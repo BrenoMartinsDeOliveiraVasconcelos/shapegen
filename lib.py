@@ -17,8 +17,10 @@ def draw_pixel(image, x, y, color):
     return image
 
 def generate_noise_map(width, height, scale=100.0, octaves=6, persistence=0.5, lacunarity=2.0, seed=0):
+    aspect_ratio = height / width
+    
     x = np.linspace(0, scale, width, endpoint=False)
-    y = np.linspace(0, scale, height, endpoint=False)
+    y = np.linspace(0, scale * aspect_ratio, height, endpoint=False)
     
     xv, yv = np.meshgrid(x, y)
     

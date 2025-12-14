@@ -36,8 +36,7 @@ class TerrainWorker(QThread):
         self.buffer_size = 4000
         self.total_time = 0
         self.total_phases = 1
-        self.target_resolutuion_h = 1024
-        self.target_resolutuion_w = 1024
+        self.target_resolutuion_width = 1080
         self.w = self.params['w']
         self.h = self.params['h']
         self.video_duration = 240
@@ -53,9 +52,10 @@ class TerrainWorker(QThread):
         for frame in self.frame_buffer:
             frame_num += 1
             print(f"Flushing {frame_num}/{len(self.frame_buffer)}")
+            aspect_ratio = self.h / self.w
 
-            times_bigger_h = self.target_resolutuion_h / self.h
-            times_bigger_w = self.target_resolutuion_h / self.w
+            times_bigger_h = self.target_resolutuion_width * aspect_ratio / self.h
+            times_bigger_w = self.target_resolutuion_width / self.w
 
             if times_bigger_h >= 1 :
                 times_bigger_h = round(times_bigger_h)
@@ -401,9 +401,9 @@ class MainWindow(QMainWindow):
         
         # Scale
         self.scale_spin = QDoubleSpinBox()
-        self.scale_spin.setRange(0.1, 10.0)
+        self.scale_spin.setRange(0.2, 500.0)
         self.scale_spin.setValue(1.75)
-        self.scale_spin.setSingleStep(0.01)
+        self.scale_spin.setSingleStep(0.05)
         params_layout.addRow("Scale:", self.scale_spin)
         
         # Octaves
@@ -491,7 +491,7 @@ class MainWindow(QMainWindow):
         # Image display
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setStyleSheet("border: 2px solid #cccccc; background-color: #f0f0f0;")
+        self.image_label.setStyleSheet("border: 2px solid #cccccc; background-color: #000000;")
         self.image_label.setText("Terrain will be displayed here")
         self.image_label.setMinimumSize(768, 768)
         self.image_label.setMaximumSize(768, 768)
