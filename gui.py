@@ -20,7 +20,7 @@ SEED_MAX = 100000
 OUTPUT_FN = "output.png"
 MAX_TERRAIN_SIZE = 8192
 MAX_FPS = 1000
-MIN_FPS = 15
+MIN_FPS = 30
 
 
 class TerrainWorker(QThread):
@@ -41,7 +41,7 @@ class TerrainWorker(QThread):
         self.target_resolutuion_width = 1080
         self.w = self.params['w']
         self.h = self.params['h']
-        self.video_duration = 240
+        self.video_duration = 120
         self.frames = 0
         self.record = params['record']
 
@@ -151,7 +151,6 @@ class TerrainWorker(QThread):
         total_steps = frame_count
         step_add = 1
         step = 0
-        temp_frame_name = "frame.png"
 
         for y in range(nmap.shape[0]):
             for x in range(nmap.shape[1]):
