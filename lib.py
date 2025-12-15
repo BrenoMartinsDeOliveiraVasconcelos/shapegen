@@ -3,8 +3,6 @@ from PIL import Image, ImageDraw
 import numpy as np
 from noise import snoise2
 
-averages_step = []
-
 def create_image(width, height, color):
     """Create a new image with the specified width, height, and color."""
     return Image.new("RGB", (width, height), color)
@@ -25,14 +23,12 @@ def generate_noise_map(width, height, scale=100.0, octaves=6, persistence=0.5, l
     xv, yv = np.meshgrid(x, y)
     
     noise_map = np.zeros((height, width))
-    total_pixels = width * height
     step = 0
     seed_divisor = 10
     for i in range(height):
         for j in range(width):
             step += 1
             
-            print(f"[{percent(step, total_pixels):.2f}%] Generating noise map {step}/{total_pixels}: ({j}, {i})")
             noise_map[i, j] = snoise2(yv[i, j], xv[i, j],
                                       octaves=octaves,
                                       persistence=persistence,
@@ -106,18 +102,3 @@ def seconds_to_human(seconds: float)->str:
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
     return "%d:%02d:%02d" % (h, m, s)
-
-
-def average(list_numbers: list)->float:
-    return sum(list_numbers) / len(list_numbers)
-
-
-def estimate_time(percent: float, elapsed_time: float)->dict:
-    percent_per_second = percent / elapsed_time
-    averages_step.append(percent_per_second)
-    current_avg = average(averages_step)
-    print(len(averages_step), current_avg)
-
-    total_estimate_time = (100 - percent) / current_avg
-
-    return total_estimate_time

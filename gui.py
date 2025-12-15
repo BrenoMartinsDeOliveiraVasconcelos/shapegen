@@ -4,7 +4,7 @@ import random
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QSpinBox, QDoubleSpinBox, QPushButton,
-    QGroupBox, QFormLayout, QScrollArea, QLineEdit, QColorDialog
+    QGroupBox, QFormLayout, QScrollArea, QLineEdit, QColorDialog, QCheckBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap, QFont
@@ -23,7 +23,7 @@ MAX_TERRAIN_SIZE = 8192
 class TerrainWorker(QThread):
     """Worker thread for terrain generation to prevent UI freezing"""
     finished = pyqtSignal(QImage)
-    progress = pyqtSignal(int, int, float, int, int)  # current, total
+    progress = pyqtSignal(int, int, float, str)  # current, total
     
     def __init__(self, params, terrains):
         super().__init__()
@@ -35,24 +35,25 @@ class TerrainWorker(QThread):
         self.frame_buffer = [] # type: list[Image]
         self.buffer_size = 4000
         self.total_time = 0
-        self.total_phases = 1
         self.target_resolutuion_width = 1080
         self.w = self.params['w']
         self.h = self.params['h']
         self.video_duration = 240
         self.frames = 0
-
-        if "record" in args:
-            self.total_phases = 2
+        self.record = params['record']
 
 
     def _flush_buffer(self):
         print("Flushing buffer to disk...")
+        
         frame_num = 0
+        start_time = time.time()
         for frame in self.frame_buffer:
+            
             frame_num += 1
-            print(f"Flushing {frame_num}/{len(self.frame_buffer)}")
             aspect_ratio = self.h / self.w
+
+            self.progress_emit(frame_num, len(self.frame_buffer), "Writing frames to disk", start_time)
 
             times_bigger_h = self.target_resolutuion_width * aspect_ratio / self.h
             times_bigger_w = self.target_resolutuion_width / self.w
@@ -84,12 +85,17 @@ class TerrainWorker(QThread):
     def start_record(self):
         fps = round(self.frames / self.video_duration)
 
+        if fps > 1000:
+            fps = 1000
+        
+        if fps < 1:
+            fps = 15
+
         self.writer = imageio.get_writer(self.video_filename, fps=fps)
         self.frame_buffer = []
 
 
     def append_video(self, frame: Image, frame_num, frame_count):
-        print(f"Buffering frame {frame_num}/{frame_count}")
         self.frame_buffer.append(frame)
 
         if len(self.frame_buffer) >= self.buffer_size:
@@ -103,12 +109,16 @@ class TerrainWorker(QThread):
         self.writer.close()        
 
 
-    def progress_emit(self, current, total, phase):
+    def progress_emit(self, current, total, text="Processing", start_time=-1):
         if time.time() - self.last_emit < 0.1:
             return
         self.last_emit = time.time()
-        self.total_time = time.time() - self.start_time
-        self.progress.emit(current, total, self.total_time, phase, self.total_phases)
+
+        if start_time == -1:
+            start_time = self.start_time
+
+        self.total_time = time.time() - start_time
+        self.progress.emit(current, total, self.total_time, text)
 
         
     def run(self):
@@ -140,7 +150,6 @@ class TerrainWorker(QThread):
         frame_count = (nmap.shape[0] * nmap.shape[1])*2
         self.frames = frame_count
         total_steps = frame_count
-        phase = 1
         step_add = 1
         step = 0
         temp_frame_name = "frame.png"
@@ -150,7 +159,7 @@ class TerrainWorker(QThread):
                 value = int(nmap[y, x] * 255)
                 noise_img = lib.draw_pixel(noise_img, x, y, (value, value, value))
                 step += step_add
-                self.progress_emit(step, total_steps, phase)
+                self.progress_emit(step, total_steps)
         noise_img.save("noise.png")
         
         # Create image
@@ -163,22 +172,21 @@ class TerrainWorker(QThread):
                 
                 img = lib.draw_pixel(img, x, y, value)
                 step += step_add
-                self.progress_emit(step, total_steps, phase)
+                self.progress_emit(step, total_steps)
 
         print("Writing data...")
         img.save(OUTPUT_FN)
 
         # Write video
-        if "record" in args:
+        if self.record:
             self.total_time = 0
             self.start_time = time.time()
-            phase += 1
             step = 0
 
             # Adjusting buffer size for RAM-safe usage
             base_pixels = 512*512
             total_pixels = w * h
-            self.buffer_size = int((base_pixels / total_pixels) * self.buffer_size)
+            self.buffer_size = round((base_pixels / total_pixels) * self.buffer_size)
             
             lib.averages_step = []
             self.start_record()
@@ -192,7 +200,7 @@ class TerrainWorker(QThread):
                         temp_file.save(temp_frame_name)
                         self.append_video(temp_file.copy(), frame, frame_count)
                         step += step_add
-                        self.progress_emit(step, total_steps, phase)
+                        self.progress_emit(step, total_steps, "Generating video")
                         
 
             self.stop_record()
@@ -371,6 +379,7 @@ class MainWindow(QMainWindow):
         self.setMaximumWidth(window_w)
         self.setMinimumHeight(window_h)
         self.setMinimumWidth(window_w)
+        self.record = False
         
         # Central widget and main layout
         central_widget = QWidget()
@@ -466,10 +475,20 @@ class MainWindow(QMainWindow):
         left_layout.addWidget(terrain_group)
         
         # Generate button
+        generate_layout = QHBoxLayout()
+        generate_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
         self.generate_btn = QPushButton("Generate Terrain")
         self.generate_btn.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         self.generate_btn.clicked.connect(self.generate_terrain)
-        left_layout.addWidget(self.generate_btn)
+        generate_layout.addWidget(self.generate_btn)
+
+        # Record checkbox
+        self.record_checkbox = QCheckBox("Record")
+        self.record_checkbox.stateChanged.connect(self.toggle_record)
+        generate_layout.addWidget(self.record_checkbox)
+
+        left_layout.addLayout(generate_layout)
         
         # Progress label
         self.progress_label = QLabel("Ready")
@@ -498,6 +517,11 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self.image_label)
         
         main_layout.addWidget(right_panel, 1)
+
+    
+    def toggle_record(self, state):
+        self.record = state != 0
+
         
     def randomize_seed(self):
         self.seed_spin.setValue(random.randint(SEED_MIN, SEED_MAX))
@@ -541,7 +565,8 @@ class MainWindow(QMainWindow):
             'scale': self.scale_spin.value(),
             'octaves': self.octaves_spin.value(),
             'variation': self.variation_spin.value(),
-            'seed': self.seed_spin.value()
+            'seed': self.seed_spin.value(),
+            'record': self.record
         }
         
         # Get terrains
@@ -552,15 +577,12 @@ class MainWindow(QMainWindow):
         self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.on_generation_finished)
         self.worker.start()
-        
-    def update_progress(self, current, total, time_elapsed, phase, total_phases):
-        percent = lib.percent(current, total)
-        estimate = lib.estimate_time(percent, time_elapsed)
-        total_estm = lib.seconds_to_human(estimate)
 
-        progress_str = f"Processing ({phase}/{total_phases})... {percent:.4f}% - {lib.seconds_to_human(time_elapsed)} \n(ETA: {total_estm})"
+    def update_progress(self, current, total, time_elapsed, text):
+        percent = lib.percent(current, total)
+
+        progress_str = f"{text}... {percent:.4f}% - {lib.seconds_to_human(time_elapsed)}"
         progress_str += f"\n{current}/{total}"
-        print(progress_str)
         self.progress_label.setText(progress_str)
         
     def on_generation_finished(self, qimage):
