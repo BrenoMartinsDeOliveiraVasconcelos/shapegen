@@ -35,8 +35,6 @@ class TerrainWorker(QThread):
         self.start_time = time.time()
         self.last_emit = time.time()
         self.video_filename = "output.mp4"
-        self.frame_buffer = [] # type: list[Image]
-        self.buffer_size = 4000
         self.total_time = 0
         self.target_resolutuion_width = 1080
         self.w = self.params['w']
@@ -44,44 +42,6 @@ class TerrainWorker(QThread):
         self.video_duration = 120
         self.frames = 0
         self.record = params['record']
-
-
-    def _flush_buffer(self):
-        print("Flushing buffer to disk...")
-        
-        frame_num = 0
-        for frame in self.frame_buffer:
-            
-            frame_num += 1
-            aspect_ratio = self.h / self.w
-
-            self.progress_emit(frame_num, len(self.frame_buffer), "Writing frames to disk")
-
-            times_bigger_h = self.target_resolutuion_width * aspect_ratio / self.h
-            times_bigger_w = self.target_resolutuion_width / self.w
-
-            if times_bigger_h >= 1 :
-                times_bigger_h = round(times_bigger_h)
-            
-            if times_bigger_w >= 1:
-                times_bigger_w = round(times_bigger_w)
-
-            if times_bigger_h < 1:
-                times_bigger_h = round(times_bigger_h, 1)
-
-            if times_bigger_w < 1:
-                times_bigger_w = round(times_bigger_w, 1)
-
-            final_resolution_h = int(self.h * times_bigger_h)
-            final_resolution_w = int(self.w * times_bigger_w)
-
-            frame = frame.resize((final_resolution_w, final_resolution_h), resample=NEAREST)
-
-            frame_np = np.asarray(frame)
-
-            self.writer.append_data(frame_np)
-
-        self.frame_buffer.clear()
 
     
     def start_record(self):
@@ -97,11 +57,32 @@ class TerrainWorker(QThread):
         self.frame_buffer = []
 
 
-    def append_video(self, frame: Image, frame_num, frame_count):
-        self.frame_buffer.append(frame)
+    def append_video(self, frame: Image):
+        aspect_ratio = self.h / self.w
 
-        if len(self.frame_buffer) >= self.buffer_size:
-            self._flush_buffer()
+        times_bigger_h = self.target_resolutuion_width * aspect_ratio / self.h
+        times_bigger_w = self.target_resolutuion_width / self.w
+
+        if times_bigger_h >= 1 :
+            times_bigger_h = round(times_bigger_h)
+        
+        if times_bigger_w >= 1:
+            times_bigger_w = round(times_bigger_w)
+
+        if times_bigger_h < 1:
+            times_bigger_h = round(times_bigger_h, 1)
+
+        if times_bigger_w < 1:
+            times_bigger_w = round(times_bigger_w, 1)
+
+        final_resolution_h = int(self.h * times_bigger_h)
+        final_resolution_w = int(self.w * times_bigger_w)
+
+        frame = frame.resize((final_resolution_w, final_resolution_h), resample=NEAREST)
+
+        frame_np = np.asarray(frame)
+
+        self.writer.append_data(frame_np)
 
 
     def stop_record(self):
@@ -179,24 +160,17 @@ class TerrainWorker(QThread):
         if self.record:
             self.total_time = 0
             step = 0
-
-            # Adjusting buffer size for RAM-safe usage
-            base_pixels = 512*512
-            total_pixels = w * h
-            self.buffer_size = round((base_pixels / total_pixels) * self.buffer_size)
             
-            lib.averages_step = []
             self.start_record()
             files = [noise_img, img]
             temp_file = lib.create_image(w, h, (0, 0, 0))
             for file in files:
                 for height in range(h):
                     for width in range(w):
-                        frame += 1
-                        temp_file = lib.draw_pixel(temp_file, width, height, file.getpixel((width, height)))
-                        self.append_video(temp_file.copy(), frame, frame_count)
-                        step += step_add
                         self.progress_emit(step, total_steps, "Generating video")
+                        temp_file = lib.draw_pixel(temp_file, width, height, file.getpixel((width, height)))
+                        self.append_video(temp_file.copy())
+                        step += step_add
                         
 
             self.stop_record()
@@ -506,7 +480,7 @@ class MainWindow(QMainWindow):
         # Image display
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setStyleSheet("border: 2px solid #cccccc; background-color: #000000;")
+        self.image_label.setStyleSheet("border: 2px solid #cccccc; background-color: #000000; color;")
         self.image_label.setText("Terrain will be displayed here")
         self.image_label.setMinimumSize(768, 768)
         self.image_label.setMaximumSize(768, 768)
@@ -577,7 +551,7 @@ class MainWindow(QMainWindow):
     def update_progress(self, current, total, time_elapsed, text):
         percent = lib.percent(current, total)
 
-        progress_str = f"{text}... {percent:.4f}% - {lib.seconds_to_human(time_elapsed)}"
+        progress_str = f"{text}... {percent:.2f}% - {lib.seconds_to_human(time_elapsed)}"
         progress_str += f"\n{current}/{total}"
         self.progress_label.setText(progress_str)
         
