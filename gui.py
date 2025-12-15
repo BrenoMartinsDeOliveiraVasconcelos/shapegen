@@ -19,6 +19,9 @@ SEED_MIN = 0
 SEED_MAX = 100000
 OUTPUT_FN = "output.png"
 MAX_TERRAIN_SIZE = 8192
+MAX_FPS = 1000
+MIN_FPS = 15
+
 
 class TerrainWorker(QThread):
     """Worker thread for terrain generation to prevent UI freezing"""
@@ -47,13 +50,12 @@ class TerrainWorker(QThread):
         print("Flushing buffer to disk...")
         
         frame_num = 0
-        start_time = time.time()
         for frame in self.frame_buffer:
             
             frame_num += 1
             aspect_ratio = self.h / self.w
 
-            self.progress_emit(frame_num, len(self.frame_buffer), "Writing frames to disk", start_time)
+            self.progress_emit(frame_num, len(self.frame_buffer), "Writing frames to disk")
 
             times_bigger_h = self.target_resolutuion_width * aspect_ratio / self.h
             times_bigger_w = self.target_resolutuion_width / self.w
@@ -85,11 +87,11 @@ class TerrainWorker(QThread):
     def start_record(self):
         fps = round(self.frames / self.video_duration)
 
-        if fps > 1000:
-            fps = 1000
+        if fps < MIN_FPS:
+            fps = MIN_FPS
         
-        if fps < 1:
-            fps = 15
+        if fps > MAX_FPS:
+            fps = MAX_FPS
 
         self.writer = imageio.get_writer(self.video_filename, fps=fps)
         self.frame_buffer = []
@@ -109,15 +111,12 @@ class TerrainWorker(QThread):
         self.writer.close()        
 
 
-    def progress_emit(self, current, total, text="Processing", start_time=-1):
+    def progress_emit(self, current, total, text="Generating color map"):
         if time.time() - self.last_emit < 0.1:
             return
         self.last_emit = time.time()
 
-        if start_time == -1:
-            start_time = self.start_time
-
-        self.total_time = time.time() - start_time
+        self.total_time = time.time() - self.start_time
         self.progress.emit(current, total, self.total_time, text)
 
         
@@ -180,7 +179,6 @@ class TerrainWorker(QThread):
         # Write video
         if self.record:
             self.total_time = 0
-            self.start_time = time.time()
             step = 0
 
             # Adjusting buffer size for RAM-safe usage
@@ -197,7 +195,6 @@ class TerrainWorker(QThread):
                     for width in range(w):
                         frame += 1
                         temp_file = lib.draw_pixel(temp_file, width, height, file.getpixel((width, height)))
-                        temp_file.save(temp_frame_name)
                         self.append_video(temp_file.copy(), frame, frame_count)
                         step += step_add
                         self.progress_emit(step, total_steps, "Generating video")
